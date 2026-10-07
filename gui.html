@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WorkBuddy Proxy 管理面板</title>
+<style>
+  :root{--bg:#0f1115;--card:#191c23;--line:#2a2f3a;--txt:#e6e9ef;--mut:#8b93a3;--ok:#3fb950;--bad:#f85149;--acc:#4c8dff;}
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/1.5 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--txt);padding:24px;max-width:1100px;margin:0 auto}
+  h1{font-size:20px;margin:0 0 4px}
+  .sub{color:var(--mut);margin-bottom:20px}
+  .bar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:18px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px}
+  .card h3{margin:0 0 6px;font-size:15px}
+  .tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:999px;background:#232834;color:var(--mut);margin-bottom:8px}
+  .proto{color:var(--mut);font-size:12px;margin-bottom:10px}
+  .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:middle}
+  .on{background:var(--ok);box-shadow:0 0 8px var(--ok)} .off{background:var(--bad)}
+  .row{display:flex;gap:8px;margin-top:10px}
+  button{flex:1;cursor:pointer;border:1px solid var(--line);background:#222733;color:var(--txt);border-radius:8px;padding:7px 0;font-size:13px}
+  button:hover{border-color:var(--acc)}
+  button.primary{background:var(--acc);border-color:var(--acc);color:#fff}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  .url{margin-top:10px;font:12px/1.4 ui-monospace,Consolas,monospace;background:#0c0e12;border:1px solid var(--line);border-radius:6px;padding:7px 9px;word-break:break-all;color:#9fd0ff}
+  .url b{color:var(--mut);font-weight:400}
+  .panel{margin-top:22px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px}
+  .panel h2{font-size:16px;margin:0 0 10px}
+  .hint{color:var(--mut);font-size:12px;margin:6px 0 0}
+  code{background:#0c0e12;padding:1px 5px;border-radius:4px}
+  .log{background:#0c0e12;border:1px solid var(--line);border-radius:8px;padding:10px;font:12px/1.45 ui-monospace,Consolas,monospace;color:#cdd3df;white-space:pre-wrap;max-height:260px;overflow:auto;margin-top:10px}
+  .toggle{display:flex;align-items:center;gap:8px;color:var(--mut);font-size:12px}
+  a{color:var(--acc)}
+</style>
+</head>
+<body>
+  <h1>WorkBuddy Proxy 管理面板</h1>
+  <div class="sub">把已登录的 WorkBuddy 桌面客户端模型, 以 OpenAI / Anthropic 兼容接口暴露给 Codex / ZCode / DSH 等客户端。</div>
+
+  <div class="bar">
+    <div class="toggle"><input type="checkbox" id="autoToggle"><label for="autoToggle">随面板启动自动拉起 Codex 国内版</label></div>
+    <button id="refresh" style="max-width:110px">刷新状态</button>
+  </div>
+
+  <div class="grid" id="cards"></div>
+
+  <div class="panel">
+    <h2>DSH / OpenAI 兼容客户端 接入配置</h2>
+    <div class="hint">最常用: <b>Codex 国内版 (8401)</b> 同时提供 <code>/v1/chat/completions</code> 标准 OpenAI 接口, DSH 里直接填下面 URL 即可。</div>
+    <div class="hint">API Key: 代理默认<b>不校验</b> Bearer, 填 <code>sk-any</code> 或任意字符串即可; 若你设了 <code>WB_PROXY_TOKEN</code> 则填那个值。</div>
+    <div class="url" id="dshConfig"></div>
+    <div class="hint" style="margin-top:10px">若 DSH 只认 Anthropic 协议, 改用 <b>ZCode 国内版 (8400)</b> 的 URL。</div>
+  </div>
+
+  <div class="panel">
+    <h2>运行日志</h2>
+    <div class="row" style="max-width:320px">
+      <select id="logFlavor" style="flex:1;background:#222733;color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:6px">
+        <option value="codex">codex</option><option value="zcode">zcode</option>
+      </select>
+      <button id="logBtn" style="max-width:90px">查看</button>
+    </div>
+    <div class="log" id="logView">点击"查看"加载日志…</div>
+  </div>
+
+<script>
+const insts = {};
+let lastAutostart = [];
+async function api(path, opts){const r=await fetch(path,opts);return r.json();}
+function render(data){
+  const wrap=document.getElementById('cards'); wrap.innerHTML='';
+  data.instances.forEach(i=>{
+    insts[i.key]=i;
+    const on=i.running;
+    const el=document.createElement('div'); el.className='card';
+    el.innerHTML=`
+      <span class="tag">${i.variant==='ai'?'国际版 AI':'国内版 CN'} · ${i.flavor.toUpperCase()}</span>
+      <h3><span class="dot ${on?'on':'off'}"></span>${i.key}</h3>
+      <div class="proto">${i.proto}</div>
+      <div class="url"><b>URL </b>${i.url}</div>
+      <div class="row">
+        <button class="primary" data-act="start" data-k="${i.key}" ${on?'disabled':''}>启动</button>
+        <button data-act="stop" data-k="${i.key}" ${on?'':'disabled'}>停止</button>
+      </div>
+      <div class="hint" style="margin-top:8px">${on?'运行中 · '+i.health:'未运行'}</div>`;
+    wrap.appendChild(el);
+  });
+  const cn=insts['codex-cn'];
+  document.getElementById('dshConfig').innerHTML=`<b>Base URL </b>${cn.url}<br><b>API Key </b>sk-any (或任意)`;
+  const tg=document.getElementById('autoToggle');
+  tg.checked=(data.autostart||[]).includes('codex-cn');
+}
+async function load(){
+  const d=await api('/api/status');
+  lastAutostart = d.autostart || [];
+  render(d);
+  document.getElementById('autoToggle').onchange=e=>{
+    const as=new Set(lastAutostart);
+    if(e.target.checked) as.add('codex-cn'); else as.delete('codex-cn');
+    lastAutostart=[...as];
+    api('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({autostart:[...as]})});
+  };
+}
+document.addEventListener('click',async e=>{
+  const b=e.target.closest('button[data-act]'); if(!b)return;
+  const k=b.dataset.k, act=b.dataset.act;
+  b.disabled=true; b.textContent=act==='start'?'启动中…':'停止中…';
+  await api('/api/'+act,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key:k})});
+  await load();
+});
+document.getElementById('refresh').onclick=load;
+document.getElementById('logBtn').onclick=async()=>{
+  const f=document.getElementById('logFlavor').value;
+  const r=await api('/api/log?flavor='+f);
+  document.getElementById('logView').textContent=r.log||'(空)';
+};
+load();
+setInterval(load,8000);
+</script>
+</body>
+</html>

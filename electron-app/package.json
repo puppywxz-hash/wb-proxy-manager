@@ -1,0 +1,43 @@
+{
+  "name": "workbuddy-proxy-manager",
+  "version": "1.3.0",
+  "description": "WorkBuddy 反向代理管理器：托盘常驻、积分倍率、用量统计、限额检测",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win portable"
+  },
+  "build": {
+    "appId": "cn.workbuddy.proxy-manager",
+    "productName": "WB代理管理器",
+    "directories": {
+      "output": "dist-portable6"
+    },
+    "electronDist": "node_modules/electron/dist",
+    "icon": "assets/tray.ico",
+    "files": [
+      "main.js",
+      "preload.js",
+      "index.html",
+      "renderer.js",
+      "styles.css",
+      "vendor/**/*",
+      "assets/**/*"
+    ],
+    "asarUnpack": [
+      "assets/**/*"
+    ],
+    "win": {
+      "target": [
+        "portable"
+      ]
+    },
+    "portable": {
+      "artifactName": "WB代理管理器-绿色版-${version}.${ext}"
+    }
+  },
+  "devDependencies": {
+    "electron": "^44.6.0",
+    "electron-builder": "^26.15.3"
+  }
+}

@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WB代理管理器</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <h1>WB代理管理器 <small class="ver">绿色免安装版</small></h1>
+  <div class="sub">托盘常驻 · 按协议分组 · 模型倍率 · 实时积分消耗</div>
+
+  <h2>🔌 OpenAI 协议组 <span class="grp-note">Responses / Chat Completions · /v1</span></h2>
+  <div class="grid" id="cards-openai"></div>
+
+  <h2>🧩 Anthropic 协议组 <span class="grp-note">Messages · /v1/messages</span></h2>
+  <div class="grid" id="cards-anthropic"></div>
+
+  <h2>📊 积分余额 <button id="creditBtn">刷新积分</button></h2>
+  <div id="credits" class="panel">点击"刷新积分"查询…</div>
+
+  <h2>🧠 当前账号可用模型 <button id="modelBtn">刷新模型</button> <button id="probeBtn">检测限额</button> <span class="grp-note">（每 60 秒自动刷新）</span></h2>
+  <div class="panel">
+    <div class="hint">agent 端模型列表里只会出现 <code>workbuddy</code>；在下面选择「国内版/国际版」实际要走哪个模型。模型按倍率从便宜→贵排序，限额/受限模型置底；同倍率按世界排名更好的在前。<br>
+    <b>状态说明</b>：<span class="badge free">免费</span>=倍率为 0；<span class="badge trial">限时免费</span>=上游试用模型（如 <code>hy4-preview-f</code>，试用期内免费）；<span class="badge limited">限额</span>=近 24 小时该模型被上游限流/额度用尽（限额是运行时状态，静态接口查不到，需实际请求触发；点「检测限额」会对每个模型发一条极小请求立即判定）。
+    <div class="warn">
+      <b>⚠️ 免费 / 限时免费模型的使用风险</b>
+      <ul>
+        <li>试用模型（如 <code>hy4-preview-f</code>）<b>只在上游规定的免费时段 / 试用期内免费</b>。超期后该 ID 会失效，或直接按原模型倍率计费（<code>hy4-preview</code> = x0.29）——<b>不是永久免费</b>。</li>
+        <li>部分免费是<b>分时段</b>的（如夜间/闲时），倍率会随时间变化；本表每 60 秒拉一次上游倍率，但上游调整与本地显示之间可能有延迟。</li>
+        <li>一旦上游停止免费，请求会返回 <b>402（额度用尽）/ 429（限流）</b>，此时该模型会自动打上「限额」徽标并被排到列表最底部。</li>
+        <li>建议：切换前先点「检测限额」确认当前真实可用状态；<b>重要/长任务不要只押在免费模型上</b>，避免中途被切回付费或中断。</li>
+        <li>试用天数由上游 banner 提供（如 14 天），本程序无法查到你的首次使用时间，<b>到期时间请以 WorkBuddy 官方提示为准</b>。</li>
+      </ul>
+    </div></div>
+    <div id="models">点击"刷新模型"拉取当前账号模型目录…</div>
+  </div>
+
+  <h2>💸 各模型积分消耗 <button id="usageBtn">刷新消耗</button> <span class="grp-note">（每 5 秒自动刷新）</span></h2>
+  <div class="panel">
+    <div class="range-bar">
+      <label>统计范围
+        <select id="usageRange">
+          <option value="today">今天（0:00–24:00）</option>
+          <option value="yesterday">昨天</option>
+          <option value="7d">近 7 天</option>
+          <option value="30d">近 30 天</option>
+          <option value="all" selected>全部</option>
+          <option value="custom">自定义…</option>
+        </select>
+      </label>
+      <span id="usageCustom" class="custom-range">
+        <input type="date" id="usageFrom"> ~ <input type="date" id="usageTo">
+      </span>
+      <span class="grp-note" id="usageRangeNote"></span>
+    </div>
+    <div id="usage">点击"刷新消耗"查看本机代理记录的用量…</div>
+  </div>
+
+  <h2>📈 历史每日消耗 <button id="dailyBtn">刷新图表</button> <span class="grp-note">（按天聚合本机用量日志）</span></h2>
+  <div class="panel">
+    <div class="range-bar">
+      <label>时间范围
+        <select id="dailyRange">
+          <option value="7d">近 7 天</option>
+          <option value="30d" selected>近 30 天</option>
+          <option value="90d">近 90 天</option>
+          <option value="all">全部</option>
+          <option value="custom">自定义…</option>
+        </select>
+      </label>
+      <span id="dailyCustom" class="custom-range">
+        <input type="date" id="dailyFrom"> ~ <input type="date" id="dailyTo">
+      </span>
+      <label>指标
+        <select id="dailyMetric">
+          <option value="credits" selected>估算积分</option>
+          <option value="tokens">tokens（输入+输出）</option>
+          <option value="count">请求数</option>
+        </select>
+      </label>
+    </div>
+    <div id="dailyChart">点击"刷新图表"查看历史每日消耗…</div>
+  </div>
+
+  <h2>运行日志</h2>
+  <div class="panel">
+    <select id="logFlavor"><option value="codex">codex</option><option value="zcode">zcode</option></select>
+    <button id="logBtn">查看</button>
+    <div class="log" id="logView">点击"查看"加载日志…</div>
+  </div>
+
+<script src="renderer.js"></script>
+</body>
+</html>
