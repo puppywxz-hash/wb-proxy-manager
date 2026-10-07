@@ -11,7 +11,33 @@
 
 1. 安装并登录 WB 桌面客户端
 2. 运行本程序（绿色版，免安装），点「启动」
-3. 在 agent 里填上界面显示的地址，模型填 `whatever`；回到本程序选实际要用的模型
+3. 把界面上显示的地址填进你的 agent：
+
+| 你的 agent | Base URL | API Key | 模型名 |
+|---|---|---|---|
+| Codex CLI 等 OpenAI 兼容 | `http://127.0.0.1:8401/v1` | 随便填 | 随便填 |
+| Claude Code 等 Anthropic 兼容 | `http://127.0.0.1:8400` | 随便填 | 随便填 |
+
+> 端口以界面显示的为准：国内版 OpenAI 8401 / 国际版 8403，国内版 Anthropic 8400 / 国际版 8402。
+
+**模型名不用纠结** —— agent 端填什么都会被忽略，实际走哪个模型由本程序界面里选中的那一项决定。
+
+两个具体例子：
+
+```toml
+# Codex CLI：~/.codex/config.toml
+model_provider = "wb"
+[model_providers.wb]
+name = "WB"
+base_url = "http://127.0.0.1:8401/v1"
+wire_api = "responses"
+```
+
+```bash
+# Claude Code：环境变量
+export ANTHROPIC_BASE_URL=http://127.0.0.1:8400
+export ANTHROPIC_API_KEY=anything
+```
 
 界面里还能看：模型倍率排序、免费/限时免费/限额状态、世界排名、实时积分消耗、历史每日柱状图。
 
